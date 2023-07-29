@@ -2,7 +2,7 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-    provider = "prisma-client-js"
+    provider        = "prisma-client-js"
     previewFeatures = ["jsonProtocol"]
 }
 
@@ -68,11 +68,23 @@ model VerificationToken {
 }
 
 model Flow {
-    id            Int       @id @default(autoincrement())
-    name          String
-    user          User      @relation(fields: [userId], references: [id])
-    userId        String
-    baseAmount    Decimal
-    inputFlows    Flow[]    @relation("connectedFlows")
-    outputFlows   Flow[]    @relation("connectedFlows")
+    id                Int          @id @default(autoincrement())
+    name              String
+    user              User         @relation(fields: [userId], references: [id])
+    userId            String
+    interval          Int
+    dollarAmount      Decimal
+    percentAmount     Decimal
+    inputConnections  Connection[] @relation("inputConnections")
+    outputConnections Connection[] @relation("outputConnections")
+}
+
+model Connection {
+    id            Int     @id @default(autoincrement())
+    inputFlow     Flow?   @relation("outputConnections", fields: [inputFlowId], references: [id], onDelete: Cascade)
+    outputFlow    Flow?   @relation("inputConnections", fields: [outputFlowId], references: [id], onDelete: Cascade)
+    dollarAmount  Decimal
+    percentAmount Decimal
+    inputFlowId   Int?
+    outputFlowId  Int?
 }
