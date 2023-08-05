@@ -1,24 +1,5 @@
 import { useState, useEffect } from 'react';
-
-type DashboardConnection = {
-    id: number;
-    dollarAmount: number;
-    percentAmount: number;
-    inputFlowId: number;
-    outputFlowId: number;
-};
-
-type DashboardFlow = {
-    id: number;
-    name: string;
-    userId: string;
-    interval: number;
-    dollarAmount: number;
-    percentAmount: number;
-    calculatedValue: number | null;
-    inputConnections: DashboardConnection[];
-    outputConnections: DashboardConnection[];
-};
+import { DashboardFlow, DashboardConnection } from '~/components/common_types';
 
 // for conversion between time intervals
 const intervalMat = [
@@ -96,8 +77,48 @@ export function FlowDashboard(props: {
         return idMap;
     };
 
+    const dfsToHTML = (flow: DashboardFlow, root: boolean) => {
+        return (
+            <div className={root ? 'w-fit bg-slate-950/5' : 'w-[100%]'}>
+                <div className="flex justify-between p-[0.5rem]">
+                    <span className="mr-4">{flow.name}:</span>
+                    <span className="mr-4">
+                        ${flow.dollarAmount !== 0 ? round(flow.dollarAmount) : round(flow.calculatedValue!)}
+                    </span>
+                    <span className="mr-4">
+                        $
+                        {flow.outputConnections.length > 0
+                            ? round(flow.calculatedValue ? flow.calculatedValue : 0)
+                            : round(0)}
+                    </span>
+                    <span>
+                        <button className="rounded border-2 border-black px-2" onClick={props.removeFlow(flow.id)}>
+                            Edit
+                        </button>
+                        <button className="rounded border-2 border-black px-2" onClick={props.removeFlow(flow.id)}>
+                            Delete
+                        </button>
+                    </span>
+                </div>
+                <div className="ml-4 bg-slate-950/5">{flow.outputFlows.map((f) => dfsToHTML(f, false))}</div>
+            </div>
+        );
+    };
+
+    // dfs algorithm to convert list of tree objects to equivalent html
+    const treeToHTML = (flows: DashboardFlow[]) => {
+        const roots = [] as any[];
+
+        for (const flow of flows) {
+            if (flow.inputConnections.length === 0) {
+                roots.push(dfsToHTML(flow, true));
+            }
+        }
+
+        return roots;
+    };
+
     useEffect(() => {
-        console.log('CHECK');
         const dashboardFlows = props.allFlows.map((flow: any) => {
             return {
                 id: flow.id,
@@ -109,8 +130,21 @@ export function FlowDashboard(props: {
                 calculatedValue: null,
                 inputConnections: flow.inputConnections.map((conn: any) => conn as DashboardConnection),
                 outputConnections: flow.outputConnections.map((conn: any) => conn as DashboardConnection),
+                inputFlows: [] as DashboardFlow[],
+                outputFlows: [] as DashboardFlow[],
             } as DashboardFlow;
         });
+
+        // TODO: inefficient graph building algorithm but we're not expecting a very large N right now
+        for (const flow of dashboardFlows) {
+            for (const conn of flow.inputConnections) {
+                flow.inputFlows.push(dashboardFlows.find((f) => f.id === conn.inputFlowId)!);
+            }
+
+            for (const conn of flow.outputConnections) {
+                flow.outputFlows.push(dashboardFlows.find((f) => f.id === conn.outputFlowId)!);
+            }
+        }
 
         // interval conversion
         for (let i = 0; i < dashboardFlows.length; i++) {
@@ -144,7 +178,7 @@ export function FlowDashboard(props: {
     };
 
     return (
-        <>
+        <div className="ml-4">
             <button className={buttonClass} onClick={() => props.setCreatingCallback()}>
                 Create new flow
             </button>
@@ -157,68 +191,7 @@ export function FlowDashboard(props: {
                     <option onClick={() => setInterval(3)}>Year</option>
                 </select>
             </span>
-            <table>
-                <tr className="border-b-[1px] border-black">
-                    <td>Name</td>
-                    <td>Base</td>
-                    <td>
-                        <span className="mr-4">Leftover</span>
-                    </td>
-                    <td>Sources</td>
-                    <td></td>
-                    <td></td>
-                </tr>
-                {calculatedFlows
-                    ? calculatedFlows.map((flow) => {
-                          return (
-                              <tr>
-                                  <td>
-                                      <span className="mr-4">{flow.name}:</span>
-                                  </td>
-                                  <td>
-                                      <span className="mr-4">
-                                          {flow.dollarAmount !== 0
-                                              ? round(flow.dollarAmount)
-                                              : round(flow.calculatedValue!)}
-                                      </span>
-                                  </td>
-                                  <td>
-                                      <span className="mr-4">
-                                          {flow.outputConnections.length > 0
-                                              ? round(flow.calculatedValue ? flow.calculatedValue : 0)
-                                              : round(0)}
-                                      </span>
-                                  </td>
-                                  <td>
-                                      <span className="mr-4">
-                                          {flow.inputConnections
-                                              .map((conn) => {
-                                                  return flowIdMap.get(conn.inputFlowId)!.name;
-                                              })
-                                              .join(', ')}
-                                      </span>
-                                  </td>
-                                  <td>
-                                      <button
-                                          className="rounded border-2 border-black px-2"
-                                          onClick={props.removeFlow(flow.id)}
-                                      >
-                                          Edit
-                                      </button>
-                                  </td>
-                                  <td>
-                                      <button
-                                          className="rounded border-2 border-black px-2"
-                                          onClick={props.removeFlow(flow.id)}
-                                      >
-                                          Delete
-                                      </button>
-                                  </td>
-                              </tr>
-                          );
-                      })
-                    : []}
-            </table>
-        </>
+            <div>{treeToHTML(calculatedFlows)}</div>
+        </div>
     );
 }

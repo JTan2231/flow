@@ -38,6 +38,7 @@ export const flowRouter = createTRPCRouter({
         return ctx.prisma.flow.create({ data: flowSchema.parse(input) });
     }),
 
+    // TODO: new flows CANNOT make the new graph cyclic
     createConnectedFlow: protectedProcedure.input(connectedFlowSchema).mutation(({ input, ctx }) => {
         const newFlow = connectedFlowSchema.parse(input);
 
